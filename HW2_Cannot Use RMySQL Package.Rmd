@@ -1,0 +1,207 @@
+---
+title: "STATS 405 - HW2"
+author: "Yuan Yi Chen (Eve)"
+date: "2017年5月30日"
+output: html_document
+---
+
+###Notes
+1. I have done all the questions except the question 2 - Set primary key
+2. I use "RSQLite" package instead of "RMySQL" because I cannot load this package
+
+***
+###A. Set up the Working Environment
+Remove Objects
+```{r, message=FALSE}
+rm(list=ls())
+```
+
+
+Clear Memory
+```{r, message = FALSE}
+gc(reset=TRUE)
+```
+
+Set root
+```{r, message = F}
+setwd("C:/Users/Eve/Dropbox/UCLA Files/Courses/405 Data Management/HW2")
+```
+
+Package Install
+```{r, message = F}
+library(dplyr)
+library(data.table)		#Data management package
+library(DBI)  
+```
+
+
+***
+
+###B. Connect database and add data sets into the database (two data sets - Breast cancer diagnostic & prognostic)
+```{r, message = F}
+library(RSQLite)
+SQLite()
+```
+
+```{r, message = F}
+con <- dbConnect(SQLite(), db = "database.sqlite")  #dbconnect
+```
+
+Remove data sets from our database
+```{r, message = F}
+dbRemoveTable(con, "Diag")
+dbRemoveTable(con, "Prog")
+```
+
+Add our data sets to our database
+```{r, message = F}
+#Load data set - Breast cancer diagnostic data set
+dbWriteTable(conn = con, name = "Diag", value = "diag.csv",
+             row.names = F, header = T)
+
+#Load data set - Breast cancer prognostic data set
+dbWriteTable(conn = con, name = "Prog", value = "prog.csv",
+             row.names = F, header = T)
+```
+
+List all the data sets and colnames
+```{r, message = F}
+dbListTables(con)
+dbListFields(con, "Diag")  #See colnames of Diag (diagnostic data set)
+dbListFields(con, "Prog")  #See colnames of Piag (prognostic data set)
+```
+
+Take a look about these data sets
+```{r}
+#(a.) Diag data set
+dbGetQuery(con, "SELECT * FROM Diag
+                   WHERE ID_number = '842517'")
+
+#(b.) Prog data set
+dbGetQuery(con, "SELECT * FROM Prog
+                         WHERE ID_number = '842517'")
+```
+
+
+
+
+***
+
+###C. Doing questions 3, 4, 5
+
+####Question3: INNER JOIN and other JOINs
+(a.) Inner join
+```{r, message = F}
+inner_join <- dbGetQuery(con, "SELECT * 
+                   FROM Diag
+                    INNER JOIN Prog
+                    USING (ID_number);") 
+```
+
+```{r}
+head(inner_join)
+```
+
+(b.) Left join
+
+```{r, message = F}
+left_join <- dbGetQuery(con, "SELECT * FROM Diag
+                        LEFT JOIN Prog
+                        USING (ID_number);")
+```
+```{r}
+head(left_join)
+```
+
+(c.) Left excluding join
+```{r, message = F}
+left_excluding <- dbGetQuery(con, "SELECT * FROM Diag
+                             LEFT JOIN Prog
+                             USING (ID_number);
+                             WHERE Prog.ID_number IS NULL")
+```
+
+```{r}
+head(left_excluding)
+```
+
+
+
+
+
+***
+
+####Question4: Use GROUP BY and Aggregation
+```{r, message = F}
+#Group By the Prognostic data with "outcome"
+group_by_prognostic <- dbGetQuery(con, "SELECT outcome, COUNT(ID_number), AVG(time)
+                       FROM Prog
+                       GROUP BY outcome")
+group_by_prognostic
+```
+```{r, message = F}
+#Group By the Diagnostic data with "Diag" (This colname means the final diagnostic result)
+group_by_diagnostic <- dbGetQuery(con, "SELECT Diag, COUNT(ID_number),
+                                  AVG(mean_radius)
+                                  FROM Diag
+                                  GROUP BY Diag")
+```
+
+
+
+
+
+***
+####Question5: Order by
+```{r, message = F}
+#Order the prognostic data
+order_by_prognostic <- dbGetQuery(con, "SELECT outcome, COUNT(ID_number),
+                                  AVG(time)
+                                  FROM Prog
+                                  GROUP BY outcome
+                                  ORDER BY AVG(time)")
+```
+
+```{r, message = F}
+#Order the diagnostic data
+order_by_diagnostic <- dbGetQuery(con, "SELECT Diag, COUNT(ID_number),
+                                  AVG(mean_radius)
+                                  FROM Diag
+                                  GROUP BY Diag
+                                  ORDER BY AVG(mean_radius)")
+```
+
+
+
+
+***
+###D. Errors I encountered 
+
+####1. When I Use "RMySQL" package - Cannot connect to database
+```{r, message = F}
+library(RMySQL)
+```
+
+Q: Cannot connect db - Cannot connect to MySQL server on "localhost" and "My IP address"
+```{r}
+#I cannot run the following codes because it will show error message
+#connect <- dbConnect(MySQL(), user = "Eve", password = "j33890",
+#                     dbname = "database.sqlite",
+#                     host = "localhost")
+
+#connect <- dbConnect(MySQL(), user = "Eve", password = "j33890",
+#                     dbname = "database.sqlite",
+#                     host = "192.168.2.114")
+
+```
+The error messages look like this:
+Error in .local(drv, ...) : 
+  Failed to connect to database: Error: Can't connect to MySQL server on 'localhost' (0)
+  
+  
+  
+***
+####2. When I Use "RSQLite" package - cannot set primary keys
+```{r}
+###dbGetQuery(con, "SHOW INDEX FROM Diag")
+```
